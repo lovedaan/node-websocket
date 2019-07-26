@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>websocket-demo</title>
+  <link rel="stylesheet" type="text/css" href="/css/bootstrap.min.css" />
+  <style type="text/css">
+    ul {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      width: 300px;
+      margin-right: 20px;
+    }
+    li {
+      height: 40px;
+      line-height: 40px;
+      border-bottom: 1px solid #000;
+    }
+    #page {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="login">
+    <h1>登录</h1>
+    <div class="form">
+      <div>用户名：<input type="text" id="username" /></div>
+      <div>密码：<input type="password" id="password" /></div>
+      <div><button id="loginBtn">登录</button></div>
+    </div>
+  </div>
+  <div id="page">
+    <h1 class="page-title">hello</h1>
+    <div style="display: flex; margin: 50px auto;">
+      <ul id="content"></ul>
+      <div>
+        <h2 class="userTitle"></h2>
+        <ul id="users"></ul>
+      </div>
+    </div>
+    <input type="text" id="input" />
+    <button id="btn">链接</button>
+    <button id="send">发送</button>
+  </div>
+  <script type="text/javascript" src="/js/axios.js"></script>
+  <script type="text/javascript" src="/js/vue.min.js"></script>
+  <script type="text/javascript">
+
+    function $(id) {
+      return document.querySelector(id);
+    }
+
+
+     let btn = $('#btn');
+     let send = $('#send');
+     let input = $('#input');
+     let oUl = $('#content');
+     let login = $('#login');
+     let username = $('#username');
+     let password = $('#password');
+     let loginBtn = $('#loginBtn');
+     let page = $('#page');
+     let ws = null;
+
+
+     loginBtn.addEventListener('click', () => {
+
+      axios.post('http://127.0.0.1:3000/api/login', {
+        username: username.value,
+        password: password.value,
+      }).then(res => {
+        console.log(res)
+        alert('登录成功');
+        login.style.display = 'none';
+        $('.page-title').innerHTML = `欢迎${res.data.data.username}`;
+        page.style.display = 'block';
+      })
+     }, false);
+
+
+     btn.addEventListener('click', () => {
+        ws = new WebSocket('ws://127.0.0.1:3000?name=' + encodeURIComponent(username.value));
+        ws.onopen=function(){
+             console.log('客户端已连接');
+             oUl.innerHTML+="<li>客户端已连接</li>";
+         }
+        ws.onmessage=function(evt){
+          console.log(evt.data)
+          let data = JSON.parse(evt.data);
+          if(data.message) {
+            oUl.innerHTML+="<li>"+data.message+"</li>";
+          }
+          $('.userTitle').innerHTML = '当前在线人数' + data.users.length + '人';
+          let str = data.users.map(item => {
+            return `<li>${item}</li>`;
+          }).join('');
+          $('#users').innerHTML = str;
+        }
+        ws.onclose=function(){
+            console.log('客户端已断开');
+            oUl.innerHTML+="<li>客户端已断开连接</li>";
+        };
+        ws.onerror=function(evt){
+          console.log(evt)
+          oUl.innerHTML+="<li>"+evt.data+"</li>";
+        };
+     }, false);
+
+     send.addEventListener('click', () => {
+        if(ws){
+            ws.send(input.value);
+            input.value = '';
+        }
+     }, false);
+  </script>
+</body>
+</html>
