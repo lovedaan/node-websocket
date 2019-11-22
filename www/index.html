@@ -17,103 +17,120 @@
       line-height: 40px;
       border-bottom: 1px solid #000;
     }
-    #page {
-      display: none;
+    .send-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top:  30px;
     }
   </style>
 </head>
 <body>
-  <div id="login">
-    <h1>登录</h1>
-    <div class="form">
-      <div>用户名：<input type="text" id="username" /></div>
-      <div>密码：<input type="password" id="password" /></div>
-      <div><button id="loginBtn">登录</button></div>
-    </div>
-  </div>
-  <div id="page">
-    <h1 class="page-title">hello</h1>
-    <div style="display: flex; margin: 50px auto;">
-      <ul id="content"></ul>
-      <div>
-        <h2 class="userTitle"></h2>
-        <ul id="users"></ul>
+  <div id="app" class="container">
+    <div id="login" v-if="!isLogin" class="row">
+      <div class="col-8">
+        <h1>登录</h1>
+        <div class="form">
+          <div class="form-group">
+            <label for="exampleInputEmail1">用户名</label>
+            <input type="text" v-model="username" class="form-control" id="exampleInputEmail1" placeholder="请输入用户名">
+          </div>
+          <div class="form-group">
+            <label for="exampleInputPassword1">密码</label>
+            <input type="password" v-model="password" class="form-control" id="exampleInputPassword1" placeholder="请输入密码">
+          </div>
+          <button type="button" class="btn btn-primary" @click="doLogin">登录</button>
+        </div>
       </div>
     </div>
-    <input type="text" id="input" />
-    <button id="btn">链接</button>
-    <button id="send">发送</button>
+    <div id="page" class="row" v-else>
+      <div class="col-8">
+        <h1 class="page-title">欢迎{{username}}</h1>
+        <ul id="content">
+          <li v-for="(item, index) of list" :key="index" v-html="item.text"></li>
+        </ul>
+        <div class="send-bar">
+          <input type="text" id="input" v-model="wsVal" />
+          <div class="send-bar-right">
+            <button id="btn" class="btn btn-success" style="margin-right: 10px;" @click="linkWsServer">链接</button>
+            <button id="send" class="btn btn-primary" @click="send">发送</button>
+          </div>
+        </div>
+      </div>
+      <div class="col-4">
+        <h2 class="userTitle">当前在线人数：{{userList.length}}人</h2>
+        <ul id="users">
+          <li v-for="(item, index) of userList" :key="index">{{item}}</li>
+        </ul>
+      </div>
+    </div>
   </div>
   <script type="text/javascript" src="/js/axios.js"></script>
   <script type="text/javascript" src="/js/vue.min.js"></script>
   <script type="text/javascript">
 
-    function $(id) {
-      return document.querySelector(id);
-    }
-
-
-     let btn = $('#btn');
-     let send = $('#send');
-     let input = $('#input');
-     let oUl = $('#content');
-     let login = $('#login');
-     let username = $('#username');
-     let password = $('#password');
-     let loginBtn = $('#loginBtn');
-     let page = $('#page');
-     let ws = null;
-
-
-     loginBtn.addEventListener('click', () => {
-
-      axios.post('http://127.0.0.1:3000/api/login', {
-        username: username.value,
-        password: password.value,
-      }).then(res => {
-        console.log(res)
-        alert('登录成功');
-        login.style.display = 'none';
-        $('.page-title').innerHTML = `欢迎${res.data.data.username}`;
-        page.style.display = 'block';
-      })
-     }, false);
-
-
-     btn.addEventListener('click', () => {
-        ws = new WebSocket('ws://127.0.0.1:3000?name=' + encodeURIComponent(username.value));
-        ws.onopen=function(){
-             console.log('客户端已连接');
-             oUl.innerHTML+="<li>客户端已连接</li>";
-         }
-        ws.onmessage=function(evt){
-          console.log(evt.data)
-          let data = JSON.parse(evt.data);
-          if(data.message) {
-            oUl.innerHTML+="<li>"+data.message+"</li>";
+    let vm = new Vue({
+      el: '#app',
+      data: {
+        username: '',
+        password: '',
+        isLogin: false,
+        list: [],
+        userList: [],
+        wsVal: '',
+        ws: null,
+      },
+      methods: {
+        doLogin() {
+          axios.post('http://127.0.0.1:3000/api/login', {
+            username: this.username,
+            password: this.password,
+          }).then(res => {
+            alert('登录成功');
+            this.isLogin = true;
+          })
+        },
+        linkWsServer() {
+          let _this = this;
+          if(!this.ws) {
+            this.ws = new WebSocket('ws://127.0.0.1:3000?name=' + encodeURIComponent(this.username));
           }
-          $('.userTitle').innerHTML = '当前在线人数' + data.users.length + '人';
-          let str = data.users.map(item => {
-            return `<li>${item}</li>`;
-          }).join('');
-          $('#users').innerHTML = str;
-        }
-        ws.onclose=function(){
-            console.log('客户端已断开');
-            oUl.innerHTML+="<li>客户端已断开连接</li>";
-        };
-        ws.onerror=function(evt){
-          console.log(evt)
-          oUl.innerHTML+="<li>"+evt.data+"</li>";
-        };
-     }, false);
+          this.ws.onopen=function(){
+               console.log('客户端已连接');
+               _this.list.push({
+                text: '客户端已连接'
+               });
+           }
+          this.ws.onmessage=function(evt){
+            console.log(evt.data)
+            let data = JSON.parse(evt.data);
+            if(data.message) {
+              _this.list.push({
+                text: data.message
+               });
+            }
+            _this.userList = data.users;
 
-     send.addEventListener('click', () => {
-        if(ws){
-            ws.send(input.value);
-            input.value = '';
+          }
+          this.ws.onclose=function(){
+              console.log('客户端已断开');
+              _this.list.push({
+                text: '客户端已断开'
+               });
+          };
+          this.ws.onerror=function(evt){
+            console.log(evt)
+             _this.list.push({
+                text: evt.data
+               });
+          };
+        },
+        send() {
+          this.ws.send(this.wsVal);
+          this.wsVal = '';
         }
-     }, false);
+      }
+    });
   </script>
 </body>
 </html>
